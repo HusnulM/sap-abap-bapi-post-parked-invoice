@@ -1,0 +1,73 @@
+FUNCTION Z_API_VIM_INV_PO_POST.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     REFERENCE(I_BELNR) TYPE  RBKP_V-BELNR
+*"     REFERENCE(I_GJAHR) TYPE  RBKP_V-GJAHR
+*"  EXPORTING
+*"     REFERENCE(OUTPUT)
+*"----------------------------------------------------------------------
+
+
+  DATA :
+    E_RBKPV      TYPE MRM_RBKPV,
+    I_RBKPV      TYPE MRM_RBKPV,
+    T_DRSEG      TYPE MMCR_TDRSEG,
+    TI_DRSEG     TYPE MMCR_TDRSEG,
+    I_EDITOR     TYPE REF TO C_TEXTEDIT_CONTROL,
+    E_MRM_ZLSPR  TYPE MRM_ZLSPR,
+    I_DO_PRICING TYPE BOOLE-BOOLE,
+    I_BOPF_CALL  TYPE BOOLE-BOOLE.
+
+  DATA:
+    EX_OBJECT_CX_ROOT TYPE REF TO CX_ROOT,
+    EX_TEXT           TYPE STRING,
+    EX_TEXT_LONG      TYPE STRING.
+
+  CALL FUNCTION 'MRM_INVOICE_READ'
+    EXPORTING
+      I_BELNR         = I_BELNR
+      I_GJAHR         = I_GJAHR
+*     I_XSELK         = ' '
+*     I_BUFFER_ON     = X
+*     I_LOCK          = ' '
+*     I_DISPL         = ' '
+    IMPORTING
+      E_RBKPV         = E_RBKPV
+    TABLES
+      T_DRSEG         = T_DRSEG
+    EXCEPTIONS
+      ENTRY_NOT_FOUND = 1
+      LOCK_ERROR      = 2
+      OTHERS          = 3.
+
+  IF SY-SUBRC = 0.
+    TI_DRSEG = T_DRSEG.
+    I_RBKPV  = E_RBKPV.
+
+    TRY .
+        CALL FUNCTION 'MRM_PARKED_INVOICE_POST'
+          EXPORTING
+            I_RBKPV     = I_RBKPV
+            TI_DRSEG    = TI_DRSEG
+*           I_EDITOR    =
+*           I_DO_PRICING       = ' '
+*           I_BOPF_CALL =
+          IMPORTING
+            E_MRM_ZLSPR = E_MRM_ZLSPR.
+
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            WAIT = 'X'.
+
+        CONCATENATE 'Invoice' I_BELNR 'posted' INTO OUTPUT SEPARATED BY SPACE.
+
+      CATCH CX_ROOT INTO EX_OBJECT_CX_ROOT.
+        EX_TEXT = EX_OBJECT_CX_ROOT->GET_TEXT( ).
+        EX_TEXT_LONG = EX_OBJECT_CX_ROOT->GET_LONGTEXT( ).
+    ENDTRY.
+
+
+
+  ENDIF.
+ENDFUNCTION.
